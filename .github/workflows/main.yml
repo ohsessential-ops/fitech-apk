@@ -1,0 +1,127 @@
+name: Build FiTech APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Download repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.7"
+          channel: stable
+          cache: true
+
+      - name: Extract FiTech project
+        shell: bash
+        run: |
+          rm -rf build-source
+          mkdir build-source
+          unzip -q FiTech_Dedicated_Project_v1.3.zip -d build-source
+
+          PROJECT_DIR="$(dirname "$(find build-source -name pubspec.yaml -print -quit)")"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "FiTech pubspec.yaml was not found"
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project found at: $PROJECT_DIR"
+
+      - name: Apply compatibility fixes
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          pubspec = Path("pubspec.yaml")
+          content = pubspec.read_text(encoding="utf-8")
+
+          content = re.sub(
+              r"(?m)^(\s*)file_picker:\s*.*$",
+              r"\1file_picker: ^10.3.3",
+              content,
+          )
+
+          pubspec.write_text(content, encoding="utf-8")
+
+          picker = Path(
+              "lib/features/imports/presentation/import_center_screen.dart"
+          )
+
+          if picker.exists():
+              source = picker.read_text(encoding="utf-8")
+              source = source.replace(
+                  "FilePicker.pickFiles(",
+                  "FilePicker.platform.pickFiles(",
+              )
+              picker.write_text(source, encoding="utf-8")
+          PY
+
+      - name: Generate Android files
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+
+          if [ ! -d android ]; then
+            flutter create --platforms=android --org com.fitech .
+          fi
+
+      - name: Install packages
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          flutter clean
+          flutter pub get
+
+      - name: Analyze project
+        continue-on-error: true
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          flutter build apk --debug
+
+      - name: Build release APK
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          flutter build apk --release
+
+      - name: Upload APK files
+        uses: actions/upload-artifact@v4
+        with:
+          name: FiTech-Android-APKs
+          path: |
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
+            ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
