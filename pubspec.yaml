@@ -1,0 +1,45 @@
+name: fitech
+description: FiTech financial ERP for e-commerce sellers.
+publish_to: "none"
+version: 1.3.0+13
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: any
+  intl: any
+  sqflite: any
+  path: any
+  path_provider: any
+  shared_preferences: any
+  pdf: any
+  printing: any
+  excel: any
+  share_plus: any
+  file_picker: any
+  archive: any
+  package_info_plus: any
+  device_info_plus: any
+  connectivity_plus: any
+  crypto: any
+  local_auth: any
+  flutter_secure_storage: any
+  firebase_crashlytics: any
+  firebase_storage: any
+  cloud_firestore: any
+  firebase_auth: any
+  firebase_core: any
+  fl_chart: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/fitech_logo.png
