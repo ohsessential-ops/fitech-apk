@@ -36,7 +36,7 @@ jobs:
         run: |
           rm -rf build-source
           mkdir build-source
-          unzip -q FiTech_Dedicated_Project_v1.3.1.zip -d build-source
+          unzip -q FiTech_Dedicated_Project_v1.3.1-portable.zip -d build-source
 
           PROJECT_DIR="$(dirname "$(find build-source -name pubspec.yaml -print -quit)")"
 
