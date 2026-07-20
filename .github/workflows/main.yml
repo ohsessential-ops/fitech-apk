@@ -31,12 +31,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Extract FiTech project
+      - name: Extract reviewed FiTech project
         shell: bash
         run: |
           rm -rf build-source
           mkdir build-source
-          unzip -q FiTech_Dedicated_Project_v1.3.zip -d build-source
+          unzip -q FiTech_Dedicated_Project_v1.3.1.zip -d build-source
 
           PROJECT_DIR="$(dirname "$(find build-source -name pubspec.yaml -print -quit)")"
 
@@ -48,47 +48,23 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Project found at: $PROJECT_DIR"
 
-      - name: Apply compatibility fixes
-        shell: bash
-        run: |
-          cd "$PROJECT_DIR"
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-
-          pubspec = Path("pubspec.yaml")
-          content = pubspec.read_text(encoding="utf-8")
-
-          content = re.sub(
-              r"(?m)^(\s*)file_picker:\s*.*$",
-              r"\1file_picker: ^10.3.3",
-              content,
-          )
-
-          pubspec.write_text(content, encoding="utf-8")
-
-          picker = Path(
-              "lib/features/imports/presentation/import_center_screen.dart"
-          )
-
-          if picker.exists():
-              source = picker.read_text(encoding="utf-8")
-              source = source.replace(
-                  "FilePicker.pickFiles(",
-                  "FilePicker.platform.pickFiles(",
-              )
-              picker.write_text(source, encoding="utf-8")
-          PY
-
       - name: Generate Android files
         shell: bash
         run: |
           cd "$PROJECT_DIR"
+          flutter create --platforms=android --org com.fitech .
 
-          if [ ! -d android ]; then
-            flutter create --platforms=android --org com.fitech .
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          content = manifest.read_text(encoding="utf-8")
+          content = content.replace(
+              'android:label="fitech"',
+              'android:label="FiTech"',
+          )
+          manifest.write_text(content, encoding="utf-8")
+          PY
 
       - name: Install packages
         shell: bash
@@ -97,12 +73,29 @@ jobs:
           flutter clean
           flutter pub get
 
+      - name: Generate FiTech launcher icon
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          dart run flutter_launcher_icons
+
+      - name: Run source quality gate
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          python3 tools/quality_gate.py
+
       - name: Analyze project
-        continue-on-error: true
         shell: bash
         run: |
           cd "$PROJECT_DIR"
           flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Run automated tests
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          flutter test
 
       - name: Build debug APK
         shell: bash
@@ -119,7 +112,7 @@ jobs:
       - name: Upload APK files
         uses: actions/upload-artifact@v4
         with:
-          name: FiTech-Android-APKs
+          name: FiTech-v1.3.1-Android-APKs
           path: |
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-debug.apk
             ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
